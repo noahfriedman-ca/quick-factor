@@ -1,4 +1,4 @@
-# [noahfriedman.ca](https://noahfriedman.ca)/[quick-factor](https://noahfriedman.ca/projects/quick-factor)
+# [noahfriedman.ca](https://noahfriedman.ca)/[quick-factor](https://noahfriedman.ca/projects/quick-factor) [![CI/CD](https://github.com/noahfriedman-ca/quick-factor/workflows/CI/CD/badge.svg)](https://github.com/noahfriedman-ca/quick-factor/actions?query=workflow%3ACI%2FCD)
 
 A program that quickly factors complex polynomial functions.
 
