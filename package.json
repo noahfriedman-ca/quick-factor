@@ -1,6 +1,7 @@
 {
   "name": "quick-factor",
   "version": "0.0.0",
+  "homepage": "/projects/quick-factor",
   "private": false,
   "license": "AGPL-3.0-or-later",
   "dependencies": {
