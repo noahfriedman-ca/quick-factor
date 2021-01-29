@@ -1,0 +1,5 @@
+.idea
+build
+.eslint*
+**.DS_Store
+node_modules

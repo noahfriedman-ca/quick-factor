@@ -1,0 +1,102 @@
+name: CI/CD
+on:
+  push:
+    paths:
+      - "src/**"
+      - package.json
+      - package-lock.json
+      - .github/workflows/CICD.yml
+    branches: [ "**" ]
+    tags-ignore: [ "**" ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Retrieve cache
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-
+      - name: Install missing dependencies
+        run: npm install
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Run tests
+        run: npm test -- --passWithNoTests
+
+  chromatic:
+    name: Publish Storybook to Chromatic
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Retrieve cache
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-
+      - name: Install missing dependencies
+        run: npm install
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Publish Storybook to Chromatic
+        uses: chromaui/action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          projectToken: ${{ secrets.CHROMATIC_TOKEN }}
+          exitOnceUploaded: true
+
+  build:
+    name: Build page
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Retrieve cache
+        id: cache
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: ${{ runner.os }}-
+      - name: Install missing dependencies
+        run: npm install
+        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Build page
+        run: npm run build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: page
+          path: build/
+
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: page
+          path: build
+      - name: Deploy via SSH
+        run: |
+          eval `ssh-agent`
+          mkdir ~/.ssh
+          ssh-keyscan -H noahfriedman.ca >> ~/.ssh/known_hosts
+          ssh-add - <<< "${{ secrets.SSH_KEY }}"
+          scp -r build/ ubuntu@noahfriedman.ca:~/projects/quick-factor
