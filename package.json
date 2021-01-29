@@ -1,7 +1,8 @@
 {
   "name": "quick-factor",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.0.0",
+  "private": false,
+  "license": "AGPL-3.0-or-later",
   "dependencies": {
     "@noahfriedman.ca/components": "^1.1.2",
     "bootstrap": "^4.6.0",
