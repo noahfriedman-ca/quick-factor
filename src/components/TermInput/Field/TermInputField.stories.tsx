@@ -5,7 +5,15 @@ import TermInputField, {TermInputFieldProps} from ".";
 
 export default {
   title: "TermInput/Field",
-  component: TermInputField
+  component: TermInputField,
+  argTypes: {
+    exponent: {
+      control: {
+        type: "number",
+        min: "0"
+      }
+    }
+  }
 } as Meta<TermInputFieldProps>;
 
-export const Default: Story<TermInputFieldProps> = (props) => <TermInputField {...props} />;
+export const Default: Story<TermInputFieldProps> = (props) => <TermInputField exponent={props.exponent ? props.exponent : 0} />;
