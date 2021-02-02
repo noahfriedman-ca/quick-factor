@@ -5,7 +5,7 @@
   "private": false,
   "license": "AGPL-3.0-or-later",
   "dependencies": {
-    "@noahfriedman.ca/components": "^1.1.2",
+    "@noahfriedman.ca/components": "^1.1.3",
     "bootstrap": "^4.6.0",
     "mathjax-full": "^3.1.2",
     "mathjax-react": "^1.0.6",
