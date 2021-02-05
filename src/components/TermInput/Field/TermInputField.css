@@ -1,0 +1,13 @@
+.term-input-field {
+    width: 100px !important;
+    display: inline-flex !important;
+    text-align: right;
+    -moz-appearance: textfield;
+    padding-right: 3px;
+}
+
+.term-input-field::-webkit-outer-spin-button,
+.term-input-field::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

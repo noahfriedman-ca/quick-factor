@@ -1,6 +1,8 @@
 import React from "react";
-import {Form} from "react-bootstrap";
+import {Card, Form} from "react-bootstrap";
 import {MathComponent} from "mathjax-react";
+
+import "./TermInputField.css";
 
 export interface TermInputFieldProps {
   exponent: number
@@ -28,13 +30,15 @@ const TermInputField: (props: TermInputFieldProps) => JSX.Element = ({exponent})
   }, [exponent]);
 
   return (
-    <Form.Group>
-      <Form.Control style={{width: "auto", display: "inline-flex"}} type="number"/>
-      {checkedExponent !== 0 && (
-        <Form.Label style={{display: "inline-flex", margin: "0 15px 0 5px", fontSize: "1.2em"}}>
-          <MathComponent style={{margin: 0}} tex={String.raw`x${checkedExponent !== 1 ? `^{${checkedExponent}}` : ""}`}/>
-        </Form.Label>
-      )}
+    <Form.Group style={{margin: 5}}>
+      <Card bg="warning" text="dark" style={{flexDirection: "row", padding: 5}}>
+        <Form.Control className="term-input-field" type="number"/>
+        {checkedExponent !== 0 && (
+          <Form.Label style={{display: "inline-flex", marginLeft: 5, fontSize: "1.2em"}}>
+            <MathComponent tex={String.raw`x${checkedExponent !== 1 ? `^{${checkedExponent}}` : ""}`}/>
+          </Form.Label>
+        )}
+      </Card>
     </Form.Group>
   );
 };
