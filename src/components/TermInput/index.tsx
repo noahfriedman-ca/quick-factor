@@ -85,11 +85,11 @@ const TermInput: ((props: TermInputProps) => JSX.Element) & {
             {fields}
             <hr />
             <Row style={{alignItems: "center"}}>
-              <Col md={6}>
+              <Col xs={12} sm={4} md={6}>
                 <Button className="btn-block" type="submit">Factor!</Button>
               </Col>
-              <Col md={6}>
-                <Alert style={{margin: 0, display: "inline-flex", width: "100%"}} variant="secondary">
+              <Col xs={12} sm={8} md={6}>
+                <Alert className="mt-3 mt-sm-0" style={{margin: 0, display: "inline-flex", width: "100%"}} variant="secondary">
                   Leave blank for "<MathComponent tex={"0"}/>" value.
                 </Alert>
               </Col>
