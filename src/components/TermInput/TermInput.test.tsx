@@ -18,9 +18,7 @@ describe("the TermInput component", () => {
     expect(r.getAllByRole("spinbutton")).toHaveLength(12);
   });
   describe("should not acknowledge input and display an error when a value other than a positive integer that is >= 3 is given", () => {
-    test.each([
-      "3.14", "-2", "0", "1", "2"
-    ])("value %s", (v: string) => {
+    test.each(["3.14", "-2", "0", "1"])("value %s", (v: string) => {
       const i = r.getByRole("spinbutton");
 
       fireEvent.change(i, {target: {value: "4"}});
@@ -51,11 +49,17 @@ describe("the TermInput component", () => {
     });
     fireEvent.submit(r.getByRole("form"));
 
-    expect(mockEvent).toHaveBeenCalledWith({
-      3: 1,
-      2: 2,
-      1: 3,
-      0: 4
-    });
+    expect(mockEvent).toHaveBeenCalledWith([4, 3, 2, 1]);
+  });
+  it("should use the value '0' when an input field is empty", () => {
+    const mockEvent = jest.fn();
+    r.rerender(<TermInput onSubmit={mockEvent} />);
+
+    fireEvent.change(r.getByRole("spinbutton"), {target: {value: "2"}});
+    fireEvent.click(r.getByText(/go/i));
+
+    fireEvent.submit(r.getByRole("form"));
+
+    expect(mockEvent).toHaveBeenCalledWith([0, 0, 0]);
   });
 });

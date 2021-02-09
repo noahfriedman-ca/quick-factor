@@ -4,7 +4,7 @@ import TermInputField from "./Field";
 import {MathComponent} from "mathjax-react";
 
 export interface TermInputProps {
-  onSubmit?: (values: {[exponent: number]: number}) => void
+  onSubmit?: (values: number[]) => void
 }
 
 const TermInput: ((props: TermInputProps) => JSX.Element) & {
@@ -15,21 +15,17 @@ const TermInput: ((props: TermInputProps) => JSX.Element) & {
   const [error, setError] = React.useState<string>();
 
   function updateFields() {
-    if (degree !== Math.round(degree) || degree < 3) {
-      setError("invalid input - must be an integer larger than or equal to 3");
+    if (degree !== Math.round(degree) || degree < 2) {
+      setError("invalid input - must be an integer larger than or equal to 2");
     } else {
       const fields: JSX.Element[] = [];
       for (let i = degree; i >= 0; i--) {
-        const inputField = <TermInputField exponent={i} key={`exp${i}`} />;
-        if (i !== 0) {
+        const exp = `exp${i}`;
           fields.push(
-            <div style={{display: "inline-flex", alignItems: "center"}}>
-              {inputField}{" + "}
+            <div style={{display: "inline-flex", alignItems: "center"}} key={exp}>
+              <TermInputField exponent={i} id={exp} />{i !== 0 ? " + " : ""}
             </div>
           );
-        } else {
-          fields.push(inputField);
-        }
       }
       setFields(fields);
       setError(undefined);
@@ -44,7 +40,7 @@ const TermInput: ((props: TermInputProps) => JSX.Element) & {
         </label>
         <input id="degree" type="number" min={3} style={{margin: "0 10px", width: 50}} onChange={v => {
           const n = v.target.valueAsNumber;
-          if (isNaN(n)) {
+          if (isNaN(n) && v.target.value !== "") {
             console.error("Nice try...");
           } else {
             setDegree(n);
@@ -57,20 +53,48 @@ const TermInput: ((props: TermInputProps) => JSX.Element) & {
       </Card.Header>
       {fields.length !== 0 && (
         <Card.Body>
-          <Form inline>
+          <Form aria-label="form" onSubmit={e => {
+            e.preventDefault();
+            if (onSubmit) {
+              const r: number[] = [];
+
+              for (let v = e.currentTarget.firstElementChild; v !== null; v = v.nextElementSibling) {
+                let currentElement = v;
+                if (currentElement.tagName === "DIV") {
+                  while (currentElement.tagName !== "INPUT") {
+                    currentElement = (currentElement.firstElementChild as Element);
+                  }
+                } else if (currentElement.tagName === "HR") {
+                  break;
+                }
+
+                let checkValue = (currentElement as HTMLInputElement).valueAsNumber;
+                if ((currentElement as HTMLInputElement).value === "") {
+                  checkValue = 0;
+                }
+                if (isNaN(checkValue)) {
+                  throw new Error("Nice try...");
+                } else {
+                  r[parseInt(currentElement.id.replace("exp", ""))] = checkValue;
+                }
+              }
+
+              onSubmit(r);
+            }
+          }}>
             {fields}
+            <hr />
+            <Row style={{alignItems: "center"}}>
+              <Col md={6}>
+                <Button className="btn-block" type="submit">Factor!</Button>
+              </Col>
+              <Col md={6}>
+                <Alert style={{margin: 0, display: "inline-flex", width: "100%"}} variant="secondary">
+                  Leave blank for "<MathComponent tex={"0"}/>" value.
+                </Alert>
+              </Col>
+            </Row>
           </Form>
-          <hr />
-          <Row style={{alignItems: "center"}}>
-            <Col md={6}>
-              <Button className="btn-block">Factor!</Button>
-            </Col>
-            <Col md={6}>
-              <Alert style={{margin: 0, display: "inline-flex", width: "100%"}} variant="secondary">
-                Leave blank for "<MathComponent tex={"0"}/>" value.
-              </Alert>
-            </Col>
-          </Row>
         </Card.Body>
       )}
     </Card>

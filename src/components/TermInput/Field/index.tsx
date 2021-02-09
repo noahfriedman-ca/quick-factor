@@ -6,9 +6,10 @@ import "./TermInputField.css";
 
 export interface TermInputFieldProps {
   exponent: number
+  id?: string
 }
 
-const TermInputField: (props: TermInputFieldProps) => JSX.Element = ({exponent}) => {
+const TermInputField: (props: TermInputFieldProps) => JSX.Element = ({exponent, id}) => {
   const [checkedExponent, setCheckedExponent] = React.useState<number>();
 
   React.useEffect(() => {
@@ -31,8 +32,8 @@ const TermInputField: (props: TermInputFieldProps) => JSX.Element = ({exponent})
 
   return (
     <Form.Group style={{margin: 5}}>
-      <Card bg="warning" text="dark" style={{flexDirection: "row", padding: 5}}>
-        <Form.Control className="term-input-field" type="number"/>
+      <Card bg="warning" text="dark" style={{flexDirection: "row", padding: 5, alignItems: "center"}}>
+        <Form.Control id={id} className="term-input-field" type="number"/>
         {checkedExponent !== 0 && (
           <Form.Label style={{display: "inline-flex", marginLeft: 5, fontSize: "1.2em"}}>
             <MathComponent tex={String.raw`x${checkedExponent !== 1 ? `^{${checkedExponent}}` : ""}`}/>
