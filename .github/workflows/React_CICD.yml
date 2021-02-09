@@ -1,21 +1,25 @@
-name: CI/CD
+name: React CI/CD
 on:
   push:
     paths:
-      - "src/**"
-      - package.json
-      - package-lock.json
-      - .github/workflows/CICD.yml
+      - static/src/**
+      - static/package.json
+      - static/package-lock.json
+      - .github/workflows/React_CICD.yml
     branches: [ "**" ]
     tags-ignore: [ "**" ]
   pull_request:
     branches: [ master ]
 
+defaults:
+  run:
+    working-directory: ./static
+
 jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
+    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip react ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -23,8 +27,8 @@ jobs:
         id: cache
         uses: actions/cache@v2
         with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          path: static/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('static/package-lock.json') }}
           restore-keys: ${{ runner.os }}-
       - name: Install missing dependencies
         run: npm install
@@ -45,8 +49,8 @@ jobs:
         id: cache
         uses: actions/cache@v2
         with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          path: static/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('static/package-lock.json') }}
           restore-keys: ${{ runner.os }}-
       - name: Install missing dependencies
         run: npm install
@@ -54,6 +58,7 @@ jobs:
       - name: Publish Storybook to Chromatic
         uses: chromaui/action@v1
         with:
+          workingDir: ./static
           token: ${{ secrets.GITHUB_TOKEN }}
           projectToken: ${{ secrets.CHROMATIC_TOKEN }}
           exitOnceUploaded: true
@@ -61,7 +66,7 @@ jobs:
   build:
     name: Build page
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
+    if: "!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip react ci/cd]') && !contains(github.event.head_commit.message, '[skip all]')"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -69,8 +74,8 @@ jobs:
         id: cache
         uses: actions/cache@v2
         with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          path: static/node_modules
+          key: ${{ runner.os }}-${{ hashFiles('static/package-lock.json') }}
           restore-keys: ${{ runner.os }}-
       - name: Install missing dependencies
         run: npm install
@@ -81,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: page
-          path: build/
+          path: static/build/
 
   deploy:
     name: Deploy via SSH

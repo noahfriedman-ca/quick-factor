@@ -2,4 +2,4 @@
 build
 .eslint*
 **.DS_Store
-node_modules
+static/node_modules

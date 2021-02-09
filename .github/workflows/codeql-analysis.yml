@@ -3,9 +3,12 @@ name: "CodeQL"
 on:
   push:
     paths:
-      - "src/**"
-      - package.json
-      - package-lock.json
+      - api/**.go
+      - api/go.mod
+      - api/go.sum
+      - static/src/**
+      - static/package.json
+      - static/package-lock.json
       - .github/workflows/codeql-analysis.yml
     branches: ["**"]
     tags-ignore: ["**"]
