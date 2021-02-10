@@ -1,9 +1,12 @@
 package main
 
-import "unit.nginx.org/go"
+import (
+	"github.com/noahfriedman-ca/quick-factor/api"
+	"unit.nginx.org/go"
+)
 
 func main() {
-	if e := unit.ListenAndServe(":8080", nil); e != nil {
+	if e := unit.ListenAndServe(":8080", api.Router()); e != nil {
 		panic(e)
 	}
 }

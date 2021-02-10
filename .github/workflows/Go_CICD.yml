@@ -58,9 +58,7 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: go mod download
       - name: Build executable
-        run: |
-          cd server
-          go build -o ../api
+        run: go build -o api server/main.go
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
