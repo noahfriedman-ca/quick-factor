@@ -1,0 +1,89 @@
+name: Go CI/CD
+on:
+  push:
+    paths:
+      - api/**.go
+      - api/go.mod
+      - api/go.sum
+      - .github/workflows/Go_CICD.yml
+  pull_request:
+    branches: [master]
+
+defaults:
+  run:
+    working-directory: ./api
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    container: ghcr.io/noahfriedman-ca/cicd-deps
+    if: contains(github.ref, 'refs/tags') || (!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip go ci/cd]') && !contains(github.event.head_commit.message, '[skip all]'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+      - name: Retrieve cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ~/go/pkg/mod
+          key: quick-factor-go-${{ hashFiles('api/go.sum') }}
+          restore-keys: quick-factor-go-
+      - name: Install missing dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: go mod download
+      - name: Run tests
+        run: go test -v ./... -ginkgo.v
+
+  build:
+    name: Build executable
+    runs-on: ubuntu-latest
+    container: ghcr.io/noahfriedman-ca/cicd-deps
+    if: contains(github.ref, 'refs/tags') || (!contains(github.event.head_commit.message, '[skip ci/cd]') && !contains(github.event.head_commit.message, '[skip go ci/cd]') && !contains(github.event.head_commit.message, '[skip all]'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+      - name: Retrieve cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ~/go/pkg/mod
+          key: quick-factor-go-${{ hashFiles('api/go.sum') }}
+          restore-keys: quick-factor-go-
+      - name: Install missing dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: go mod download
+      - name: Build executable
+        run: go build
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: api
+          path: ./api/api
+
+  deploy:
+    name: Deploy via SSH
+    runs-on: ubuntu-latest
+    needs: [ test, build ]
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: api
+      - name: Deploy via SSH
+        run: |
+          eval `ssh-agent`
+          mkdir ~/.ssh
+          ssh-keyscan -H noahfriedman.ca >> ~/.ssh/known_hosts
+          ssh-add - <<< "${{ secrets.SSH_KEY }}"
+          ssh ubuntu@noahfriedman.ca "sudo systemctl stop unit"
+          scp api ubuntu@noahfriedman.ca:~/projects/quick-factor/
+          ssh ubuntu@noahfriedman.ca "sudo systemctl start unit"
+
