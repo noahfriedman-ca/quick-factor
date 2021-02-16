@@ -91,3 +91,19 @@ jobs:
           scp api ubuntu@noahfriedman.ca:~/projects/quick-factor/
           ssh ubuntu@noahfriedman.ca "sudo systemctl start unit"
 
+  functions:
+    name: Deploy functions.json
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Upload functions.json via SSH
+        run: |
+          eval `ssh-agent`
+          mkdir ~/.ssh
+          ssh-keyscan -H noahfriedman.ca >> ~/.ssh/known_hosts
+          ssh-add - <<< "${{ secrets.SSH_KEY }}"
+          scp api/functions.json ubuntu@noahfriedman.ca:~/projects/quick-factor/
