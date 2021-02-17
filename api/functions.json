@@ -1,8 +1,0 @@
-{
-  "functions": [
-    {
-      "name": "help",
-      "description": "Show this help file"
-    }
-  ]
-}
