@@ -28,7 +28,7 @@ func Router() *mux.Router {
 		r.Path("/" + t).HandlerFunc(v)
 	}
 
-	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	rtr.PathPrefix("/projects/quick-factor/api").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if b, e := json.MarshalIndent(funcsJSON, "", "    "); e != nil {
 			http.Error(w, e.Error(), http.StatusInternalServerError)
 		} else {
