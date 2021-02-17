@@ -29,9 +29,10 @@ func Router() *mux.Router {
 	}
 
 	r.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if b, e := json.Marshal(funcsJSON); e != nil {
+		if b, e := json.MarshalIndent(funcsJSON, "", "    "); e != nil {
 			http.Error(w, e.Error(), http.StatusInternalServerError)
 		} else {
+			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write(b)
 		}
 	})
