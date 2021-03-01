@@ -84,6 +84,13 @@ func Factor(w http.ResponseWriter, r *http.Request) {
 
 // Implements specific factoring rules that can only be applied to a 3-term polynomial.
 func factorTrinomial(coefficients []float64) *FactorJSON {
+	// Definitions to avoid errors with labels
+	var (
+		result                        [2]float64
+		resultType                    = "full"
+		negativeB, discriminant, twoA float64
+	)
+
 	// Ensure that there are the correct number of coefficients
 	if len(coefficients) != 3 {
 		log.Println("factorTrinomial called with not exactly 3 coefficients")
@@ -97,15 +104,71 @@ func factorTrinomial(coefficients []float64) *FactorJSON {
 		}
 	}
 
-	// Attempt to factor by grouping
+	// Grouping is done differently depending on operators (+/-)
+	if product := coefficients[0] * coefficients[2]; product < 0 {
+		if coefficients[1] < 0 {
+			for a, b := 1., coefficients[1]-1; a*b >= product; a, b = a+1, b-1 {
+				if a*b == product {
+					result = [2]float64{a, b}
+				}
+			}
+		} else if coefficients[1] > 0 {
+			for a, b := -1., coefficients[1]+1; a*b >= product; a, b = a-1, b+1 {
+				if a*b == product {
+					result = [2]float64{a, b}
+				}
+			}
+		} else { // coefficients[1] == 0
+			r := strconv.FormatFloat(math.Sqrt(math.Abs(product)), 'g', 5, 64)
+
+			return &FactorJSON{
+				Result: "full",
+				Factored: &FactoredJSON{
+					Expression: fmt.Sprintf("(x - %s)^2", r),
+					Intercepts: []string{r, "-" + r},
+				},
+			}
+		}
+	} else { // coefficients[0] and coefficients[2] both cannot be 0, so neither can 'product'
+		// If coefficients[1] == 0, it cannot be factored
+		if coefficients[1] == 0 {
+			return &FactorJSON{
+				Result: "not",
+			}
+		}
+
+		// Make sure to recall that the value should be negative
+		var negative bool
+		if coefficients[1] < 0 {
+			coefficients[1] = math.Abs(coefficients[1])
+			negative = true
+		}
+
+		half := math.Ceil(coefficients[1] / 2)
+		for a, b := 1., coefficients[1]-1; a < half; a, b = a+1, b-1 {
+			if a*b == product {
+				if negative {
+					result = [2]float64{-1 * a, -1 * b}
+				} else {
+					result = [2]float64{a, b}
+				}
+
+				break
+			}
+		}
+	}
+
+	if result == [2]float64{0, 0} {
+		goto formula
+	} else {
+		goto ret
+	}
 
 formula:
 	// Calculate the components of the quadratic formula
-	var (
-		negativeB    = -1 * coefficients[1]
-		discriminant = math.Pow(coefficients[1], 2) - (4 * coefficients[0] * coefficients[2])
-		twoA         = 2 * coefficients[2]
-	)
+	negativeB = -1 * coefficients[1]
+	discriminant = math.Pow(coefficients[1], 2) - (4 * coefficients[0] * coefficients[2])
+	twoA = 2 * coefficients[2]
 
 	// If the discriminant is negative, it has no square root, so do not factor further
 	if !(discriminant > 0) {
@@ -124,7 +187,34 @@ formula:
 		}
 	}
 
-	return nil
+	// Factor fully using the quadratic formula and return
+	discriminant = math.Sqrt(discriminant)
+	result = [2]float64{(negativeB + discriminant) / twoA, (negativeB - discriminant) / twoA}
+	resultType = "quadratic"
+	goto ret
+
+ret:
+	var (
+		ops [2]byte
+		res = make([]string, 2)
+	)
+	for i, v := range result {
+		if v < 0 {
+			ops[i] = '+'
+		} else {
+			ops[i] = '-'
+		}
+
+		res[i] = strings.TrimRight(strings.TrimRight(strconv.FormatFloat(v, 'f', 5, 64), "0"), ".")
+	}
+
+	return &FactorJSON{
+		Result: resultType,
+		Factored: &FactoredJSON{
+			Expression: fmt.Sprintf("(x %c %s)(x %c %s)", ops[0], strings.TrimLeft(res[0], "-"), ops[1], strings.TrimLeft(res[1], "-")),
+			Intercepts: res,
+		},
+	}
 }
 
 // Implements general factorization rules that can be applied to any polynomial.

@@ -56,6 +56,36 @@ var _ = Describe("the Factor function", func() {
 
 			Expect(respJSON).To(Equal(*expected(intercepts)))
 		},
+		Entry("should factor 'x^2 + 7x + 10' into '(x - 2)(x - 5)'",
+			func() ([]float64, []string) {
+				// No intercept array is returned because its not needed
+				return []float64{1, 7, 10}, nil
+			},
+			func(_ []string) *api.FactorJSON {
+				return &api.FactorJSON{
+					Result: "full",
+					Factored: &api.FactoredJSON{
+						Expression: "(x - 2)(x - 5)",
+						Intercepts: []string{"2", "5"},
+					},
+				}
+			},
+		),
+		Entry("should factor '3x^2 - 12' into '(x - 6)^2'",
+			func() ([]float64, []string) {
+				// No intercept array is returned because its not needed
+				return []float64{3, 0, -12}, nil
+			},
+			func(_ []string) *api.FactorJSON {
+				return &api.FactorJSON{
+					Result: "full",
+					Factored: &api.FactoredJSON{
+						Expression: "(x - 6)^2",
+						Intercepts: []string{"6", "-6"},
+					},
+				}
+			},
+		),
 		Entry("should factor 'x^3 - 2x^2 - 5x + 6' into '(x - 1)(x + 2)(x - 3)'",
 			func() ([]float64, []string) {
 				// No intercept array is returned because its not needed
@@ -128,8 +158,8 @@ var _ = Describe("the Factor function", func() {
 				return &api.FactorJSON{
 					Result: "quadratic",
 					Factored: &api.FactoredJSON{
-						Expression: "(x - 0.1962)(x + 10.1962)",
-						Intercepts: []string{"-10.1962", "0.1962"},
+						Expression: "(x - 0.19615)(x + 10.19615)",
+						Intercepts: []string{"0.19615", "-10.19615"},
 					},
 				}
 			},
