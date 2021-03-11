@@ -6,6 +6,8 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -69,11 +71,9 @@ func Factor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write the result
-	if b, e := json.Marshal(result); result == nil || e != nil {
+	if b, e := json.MarshalIndent(result, "", "  "); result == nil || e != nil {
 		http.Error(w, "ERROR: failed to factor", http.StatusInternalServerError)
-		if e == nil {
-			log.Println("nil result")
-		} else {
+		if e != nil {
 			log.Println(e)
 		}
 	} else {
@@ -109,7 +109,7 @@ func factorTrinomial(coefficients []float64) *FactorJSON {
 		if coefficients[1] < 0 {
 			for a, b := 1., coefficients[1]-1; a*b >= product; a, b = a+1, b-1 {
 				if a*b == product {
-					result = [2]float64{a, b}
+					result = [2]float64{a * -1, b * -1}
 				}
 			}
 		} else if coefficients[1] > 0 {
@@ -124,7 +124,7 @@ func factorTrinomial(coefficients []float64) *FactorJSON {
 			return &FactorJSON{
 				Result: "full",
 				Factored: &FactoredJSON{
-					Expression: fmt.Sprintf("(x - %s)^2", r),
+					Expression: fmt.Sprintf("(x + %[1]s)(x - %[1]s)", r),
 					Intercepts: []string{r, "-" + r},
 				},
 			}
@@ -148,9 +148,9 @@ func factorTrinomial(coefficients []float64) *FactorJSON {
 		for a, b := 1., coefficients[1]-1; a < half; a, b = a+1, b-1 {
 			if a*b == product {
 				if negative {
-					result = [2]float64{-1 * a, -1 * b}
-				} else {
 					result = [2]float64{a, b}
+				} else {
+					result = [2]float64{-1 * a, -1 * b}
 				}
 
 				break
@@ -175,7 +175,7 @@ formula:
 		// Generate x-intercept strings
 		intercepts := make([]string, 2)
 		for i, v := range []byte{'+', '-'} {
-			intercepts[i] = fmt.Sprintf("(%f %c √(%f)) / %f", negativeB, v, discriminant, twoA)
+			intercepts[i] = fmt.Sprintf("(%s %c √(%s)) / %s", formatFloat(negativeB), v, formatFloat(discriminant), formatFloat(twoA))
 		}
 
 		return &FactorJSON{
@@ -194,24 +194,17 @@ formula:
 	goto ret
 
 ret:
-	var (
-		ops [2]byte
-		res = make([]string, 2)
-	)
-	for i, v := range result {
-		if v < 0 {
-			ops[i] = '+'
-		} else {
-			ops[i] = '-'
-		}
-
-		res[i] = strings.TrimRight(strings.TrimRight(strconv.FormatFloat(v, 'f', 5, 64), "0"), ".")
+	sorted := result[:]
+	sort.Float64s(sorted)
+	res := make([]string, 2)
+	for i, v := range sorted {
+		res[i] = formatFloat(v)
 	}
 
 	return &FactorJSON{
 		Result: resultType,
 		Factored: &FactoredJSON{
-			Expression: fmt.Sprintf("(x %c %s)(x %c %s)", ops[0], strings.TrimLeft(res[0], "-"), ops[1], strings.TrimLeft(res[1], "-")),
+			Expression: fmt.Sprintf("(x%s)(x%s)", getOp(sorted[0]*-1), getOp(sorted[1]*-1)),
 			Intercepts: res,
 		},
 	}
@@ -219,11 +212,198 @@ ret:
 
 // Implements general factorization rules that can be applied to any polynomial.
 func factorPolynomial(degree uint, coefficients []float64) *FactorJSON {
-	return nil
+	// Validate degree value
+	if degree < 2 {
+		log.Println("degree was smaller than 2, this shouldn't have happened")
+		return nil
+	} else if degree == 2 {
+		log.Println("factorPolynomial was called when factorTrinomial should have been")
+	}
+	if int(degree) != len(coefficients)-1 {
+		log.Println("degree does not match up with number of coefficients")
+		return nil
+	}
+
+	// If any coefficient is not a whole number the polynomial cannot be factored.
+	for _, v := range coefficients {
+		if v != math.Round(v) {
+			return &FactorJSON{Result: "not"}
+		}
+	}
+
+	// Attempt to implement the rational root theorem
+	var (
+		wg            sync.WaitGroup
+		interceptChan = make(chan float64)
+	)
+	for _, num := range findFactorsOf(uint(math.Abs(coefficients[0]))) {
+		for _, den := range findFactorsOf(uint(math.Abs(coefficients[len(coefficients)-1]))) {
+			wg.Add(1)
+			go func(num, den float64) {
+				defer wg.Done()
+
+				x := num / den
+
+				var resultPos, resultNeg float64
+				for i := len(coefficients) - 1; i >= 0; i-- {
+					resultPos += coefficients[i] * math.Pow(x, float64(i))
+					resultNeg += coefficients[i] * math.Pow(x*-1, float64(i))
+				}
+
+				if resultPos == 0 {
+					interceptChan <- x
+				} else if resultNeg == 0 {
+					interceptChan <- x * -1
+				}
+			}(num, den)
+		}
+	}
+
+	// Create a channel to notify when the WaitGroup is empty
+	doneWaiting := make(chan bool, 1)
+	go func() {
+		wg.Wait()
+		doneWaiting <- true
+		close(doneWaiting)
+	}()
+
+	var intercept float64
+	select {
+	case intercept = <-interceptChan:
+	case <-doneWaiting: // If this happens there are no valid factors
+		return &FactorJSON{Result: "not"}
+	}
+
+	// Divide the polynomial by the discovered intercept
+	newCoefficients := make([]float64, len(coefficients)-1)
+	newCoefficients[len(newCoefficients)-1] = coefficients[len(coefficients)-1]
+	for i := len(coefficients) - 2; i > 0; i-- {
+		newCoefficients[i-1] = coefficients[i] + (intercept * newCoefficients[i])
+	}
+	if coefficients[0]+(intercept*newCoefficients[0]) != 0 {
+		log.Println("an intercept marked as valid was not")
+		return nil
+	}
+
+	// Recursion
+	var d *FactorJSON
+	if degree > 3 {
+		d = factorPolynomial(degree-1, newCoefficients)
+	} else {
+		d = factorTrinomial(newCoefficients)
+	}
+
+	if d.Result == "not" {
+		firstCoefficient := formatFloat(newCoefficients[len(newCoefficients)-1])
+		if firstCoefficient == "1" {
+			firstCoefficient = ""
+		} else if firstCoefficient == "-1" {
+			firstCoefficient = "-"
+		}
+
+		expr := fmt.Sprintf("(%sx^%d", firstCoefficient, len(newCoefficients)-1)
+
+		for i := len(newCoefficients) - 2; i > 1; i-- {
+			expr += fmt.Sprintf("%sx^%d", getOp(newCoefficients[i]), i)
+		}
+		expr += fmt.Sprintf("%sx%s)(x%s)", getOp(newCoefficients[1]), getOp(newCoefficients[0]), getOp(intercept*-1))
+
+		return &FactorJSON{
+			Result: "partial",
+			Factored: &FactoredJSON{
+				Expression: expr,
+				Intercepts: []string{formatFloat(intercept)},
+			},
+		}
+	} else {
+		d.Factored.Expression += fmt.Sprintf("(x%s)", getOp(intercept*-1))
+		d.Factored.Intercepts = append(d.Factored.Intercepts, formatFloat(intercept))
+		sort.Slice(d.Factored.Intercepts, func(i, j int) bool {
+			var strs [2]string
+			strs[0] = d.Factored.Intercepts[i]
+			strs[1] = d.Factored.Intercepts[j]
+
+			var isQuad, isNeg [2]bool
+			for i, v := range strs {
+				if strings.Contains(v, "√") {
+					isQuad[i] = true
+
+					if strings.Contains(v, "- √") {
+						isNeg[i] = true
+					}
+				}
+			}
+
+			if isQuad[0] && !isQuad[1] {
+				return false
+			} else if !isQuad[0] && isQuad[1] {
+				return true
+			} else if isQuad[0] && isQuad[1] {
+				return isQuad[1]
+			} else {
+				var flts [2]float64
+				for i, v := range strs {
+					flts[i], _ = strconv.ParseFloat(v, 64)
+				}
+				return flts[0] < flts[1]
+			}
+		})
+		for i := 0; i < (len(d.Factored.Intercepts) - 1); i++ {
+			if d.Factored.Intercepts[i] == d.Factored.Intercepts[i+1] {
+				if i+2 < len(d.Factored.Intercepts) {
+					d.Factored.Intercepts = append(d.Factored.Intercepts[:i+1], d.Factored.Intercepts[i+2:]...)
+				} else {
+					d.Factored.Intercepts = d.Factored.Intercepts[:len(d.Factored.Intercepts)-1]
+				}
+			}
+		}
+
+		var (
+			sortedExpr string
+			regex      = regexp.MustCompile(`\(x ([+-]) ([0-9])*\)(?:\^([0-9]*))?`)
+			exprs      = regex.FindAllStringSubmatch(d.Factored.Expression, -1)
+		)
+		if s := regexp.MustCompile(`^[^)]*\)`).FindString(d.Factored.Expression); !regex.MatchString(s) {
+			sortedExpr += s
+		}
+
+		sort.Slice(exprs, func(i, j int) bool {
+			var vals, exps [2]float64
+			for i, v := range []int{i, j} {
+				matches := regex.FindStringSubmatch(exprs[v][0])
+
+				r, _ := strconv.ParseFloat(matches[2], 64)
+				if matches[1][0] == '+' {
+					r *= -1
+				}
+				vals[i] = r
+
+				if matches[3] == "" {
+					exps[i] = 1
+				} else {
+					exps[i], _ = strconv.ParseFloat(matches[3], 64)
+				}
+			}
+
+			if exps[0] != exps[1] {
+				return exps[0] < exps[1]
+			} else {
+				return vals[0] < vals[1]
+			}
+		})
+
+		for _, v := range exprs {
+			sortedExpr += v[0]
+		}
+
+		d.Factored.Expression = sortedExpr
+
+		return d
+	}
 }
 
 // Calculate factors of 'x'. 'x' must be positive.
-func findFactorsOf(x uint) chan float64 {
+func findFactorsOf(x uint) []float64 {
 	var (
 		wg      sync.WaitGroup
 		factors = make(chan float64, x) // Buffer the maximum amount of values that can be sent, though it will likely never be necessary to have that many values in the channel
@@ -235,21 +415,16 @@ func findFactorsOf(x uint) chan float64 {
 		return nil
 	}
 
-	// Send '1' to the channel because everything can be factored by 1
-	factors <- 1
-
 	// Calculate if each value from 2 to x is a factor
-	go func() {
-		for i := uint(2); i < (x - 1); i++ {
-			wg.Add(1)
-			go func(i uint) {
-				defer wg.Done()
-				if f := float64(x) / float64(i); math.Round(f) == f {
-					factors <- f
-				}
-			}(i)
-		}
-	}()
+	for i := uint(2); i < (x - 1); i++ {
+		wg.Add(1)
+		go func(i uint) {
+			defer wg.Done()
+			if f := float64(x) / float64(i); math.Round(f) == f {
+				factors <- f
+			}
+		}(i)
+	}
 
 	// Ensure channel gets closed at the proper time
 	go func() {
@@ -257,6 +432,31 @@ func findFactorsOf(x uint) chan float64 {
 		close(factors)
 	}()
 
-	// Return the channel because it can be iterated over, no reason to convert to array
-	return factors
+	// Move channel values into array and return
+	r := []float64{1} // 1 is a factor of everything
+	for v := range factors {
+		r = append(r, v)
+	}
+
+	// Sort the array and return
+	sort.Float64s(r)
+	return r
+}
+
+// Return v formatted with the correct operator in front of it
+//  getOp(-45) -> " - 45"
+func getOp(v float64) string {
+	var r string
+	if v < 0 {
+		r = " - "
+	} else {
+		r = " + "
+	}
+
+	return r + formatFloat(math.Abs(v))
+}
+
+// Take 0's off the end of floats
+func formatFloat(v float64) string {
+	return strings.TrimRight(strings.TrimRight(strconv.FormatFloat(v, 'f', 5, 64), "0"), ".")
 }
