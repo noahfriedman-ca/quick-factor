@@ -161,6 +161,9 @@ func factorTrinomial(coefficients []float64) *FactorJSON {
 	if result == [2]float64{0, 0} {
 		goto formula
 	} else {
+		for i := range result {
+			result[i] /= coefficients[2]
+		}
 		goto ret
 	}
 
