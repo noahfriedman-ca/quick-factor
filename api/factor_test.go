@@ -62,7 +62,7 @@ var _ = Describe("the Factor function", func() {
 		Entry("should factor 'x^2 + 7x + 10' into '(x - 2)(x - 5)'",
 			func() ([]float64, []string) {
 				// No intercept array is returned because its not needed
-				return []float64{1, 7, 10}, nil
+				return []float64{10, 7, 1}, nil
 			},
 			func(_ []string) *api.FactorJSON {
 				return &api.FactorJSON{
