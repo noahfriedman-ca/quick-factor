@@ -30,7 +30,10 @@ func Router() *mux.Router {
 
 		// Map all functions
 		funcsJSON.Available = append(funcsJSON.Available, t)
-		r.Path("/" + t).HandlerFunc(v)
+		r.Path("/" + t).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			v(w, r)
+		})
 	}
 
 	rtr.PathPrefix("/projects/quick-factor/api").HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
